@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>LI-RADS Categorization Tool</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>LI-RADS Categorization</h1>
+        <form id="liradsForm">
+             <div class="question" id="locationGroup">
+                 <h2>Location:</h2>
+                 <input type="text" id="tumorLocation" placeholder="e.g., Segment VIII" style="width: 95%; padding: 8px;">
+             </div>
+
+            <div class="question" id="tumorInVein">
+                <h2>Tumor-in-vein?</h2>
+                <div class="radio-group">
+                    <label><input type="radio" name="tumorInVein" value="yes" required> Yes</label>
+                    <label><input type="radio" name="tumorInVein" value="no" required> No</label>
+                </div>
+            </div>
+
+            <div class="question" id="arterialPhase">
+                <h2>Arterial phase hyperenhancement?</h2>
+                <div class="radio-group">
+                    <label><input type="radio" name="arterialPhase" value="yes" required> Yes</label>
+                    <label><input type="radio" name="arterialPhase" value="no" required> No</label>
+                </div>
+            </div>
+
+            <div class="question" id="tumorSizeGroup" style="display:none;">
+                <h2>Tumor size (mm):</h2>
+                <input type="number" id="tumorSize" min="1" required>
+            </div>
+
+            <div class="question" id="featuresGroup" style="display:none;">
+                <h2>Features:</h2>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" name="features" value="capsule"> Enhancing capsule</label>
+                    <label><input type="checkbox" name="features" value="washout"> Non-peripheral washout</label>
+                    <label><input type="checkbox" name="features" value="growth"> Threshold growth</label>
+                </div>
+            </div>
+
+            <!-- Ancillary Features Section (Initially Hidden) -->
+            <div id="ancillaryFeaturesSection" style="display:none;">
+                <h2>Ancillary Features</h2>
+
+                <fieldset>
+                    <legend>Favoring malignancy in general</legend>
+                    <label><input type="checkbox" name="af_malignancy_general" value="us_visibility"> US visibility as discrete nodule</label>
+                    <label><input type="checkbox" name="af_malignancy_general" value="subthreshold_growth"> Subthreshold growth</label>
+                    <label><input type="checkbox" name="af_malignancy_general" value="restricted_diffusion"> Restricted diffusion</label>
+                    <label><input type="checkbox" name="af_malignancy_general" value="t2_hyperintensity"> Mild-moderate T2 hyperintensity</label>
+                    <label><input type="checkbox" name="af_malignancy_general" value="corona_enhancement"> Corona enhancement</label>
+                    <label><input type="checkbox" name="af_malignancy_general" value="fat_sparing"> Fat sparing in solid mass</label>
+                    <label><input type="checkbox" name="af_malignancy_general" value="iron_sparing"> Iron sparing in solid mass</label>
+                    <label><input type="checkbox" name="af_malignancy_general" value="transitional_hypo"> Transitional phase hypointensity</label>
+                    <label><input type="checkbox" name="af_malignancy_general" value="hepatobiliary_hypo"> Hepatobiliary phase hypointensity</label>
+                </fieldset>
+
+                 <fieldset>
+                     <legend>Favoring HCC in particular</legend>
+                    <label><input type="checkbox" name="af_hcc_specific" value="nonenhancing_capsule"> Nonenhancing “capsule”</label>
+                    <label><input type="checkbox" name="af_hcc_specific" value="nodule_in_nodule"> Nodule-in-nodule</label>
+                    <label><input type="checkbox" name="af_hcc_specific" value="mosaic"> Mosaic architecture</label>
+                    <label><input type="checkbox" name="af_hcc_specific" value="blood_products"> Blood products in mass</label>
+                    <label><input type="checkbox" name="af_hcc_specific" value="fat_in_mass"> Fat in mass, more than adjacent liver</label>
+                </fieldset>
+
+                <fieldset>
+                    <legend>Favoring Benignity</legend>
+                    <label><input type="checkbox" name="af_benignity" value="size_stability"> Size stability > 2 yrs</label>
+                    <label><input type="checkbox" name="af_benignity" value="size_reduction"> Size reduction</label>
+                    <label><input type="checkbox" name="af_benignity" value="blood_pool"> Parallels blood pool</label>
+                    <label><input type="checkbox" name="af_benignity" value="undistorted_vessels"> Undistorted vessels</label>
+                    <label><input type="checkbox" name="af_benignity" value="iron_in_mass"> Iron in mass, more than liver</label>
+                    <label><input type="checkbox" name="af_benignity" value="marked_t2"> Marked T2 hyperintensity</label>
+                    <label><input type="checkbox" name="af_benignity" value="hepatobiliary_iso"> Hepatobiliary phase isointensity</label>
+                </fieldset>
+            </div>
+            <!-- End Ancillary Features -->
+
+            <button type="submit" id="calculateInitialBtn">Calculate Initial Category</button>
+            <button type="button" id="adjustCategoryBtn" style="display:none;">Adjust Category with Ancillary Features</button>
+            <button type="button" id="exportBtn" style="display:none; margin-top: 10px; background-color: #27ae60;">Export Findings (Text)</button>
+        </form>
+        <div id="result" class="result-box"></div>
+        <div id="exportOutputSection" style="display:none; margin-top: 20px;">
+            <h3>Findings Summary (Copy Below):</h3>
+            <textarea id="exportOutput" rows="15" style="width: 98%; font-family: monospace;"></textarea>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
