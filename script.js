@@ -311,3 +311,31 @@ document.addEventListener('DOMContentLoaded', () => {
      document.getElementById('calculateInitialBtn').style.display = 'block';
      document.getElementById('result').innerHTML = ''; // Clear result area
 });
+
+// Listener for Reset Button
+document.getElementById('resetBtn').addEventListener('click', function() {
+     // Reset the form fields
+     document.getElementById('liradsForm').reset();
+
+     // Reset global variables
+     initialCategory = '';
+     finalCategory = '';
+     formData = {};
+
+     // Hide dynamic sections
+     document.getElementById('tumorSizeGroup').style.display = 'none';
+     document.getElementById('featuresGroup').style.display = 'none';
+     document.getElementById('ancillaryFeaturesSection').style.display = 'none';
+     document.getElementById('exportOutputSection').style.display = 'none';
+
+     // Reset button visibility
+     document.getElementById('calculateInitialBtn').style.display = 'block';
+     document.getElementById('adjustCategoryBtn').style.display = 'none';
+     document.getElementById('exportBtn').style.display = 'none';
+
+     // Clear result display
+     document.getElementById('result').innerHTML = '';
+
+     // Ensure Arterial Phase is visible (as TIV is now reset)
+     document.getElementById('arterialPhase').style.display = 'block';
+});
