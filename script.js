@@ -1,6 +1,76 @@
 let initialCategory = ''; // Store the initial category globally
 let finalCategory = ''; // Store the final category globally
 let formData = {}; // Store all form data for export
+let isEligible = true; // Track eligibility status
+
+// --- Elements ---
+const patientAgeInput = document.getElementById('patientAge');
+const ageWarningDiv = document.getElementById('ageWarning');
+const disablingConditionCheckboxes = document.querySelectorAll('.disabling-condition');
+const conditionWarningDiv = document.getElementById('conditionWarning');
+const formElementsToDisable = [
+    document.getElementById('locationGroup'),
+    document.getElementById('tumorInVein'),
+    document.getElementById('arterialPhase'),
+    document.getElementById('tumorSizeGroup'),
+    document.getElementById('featuresGroup'),
+    document.getElementById('ancillaryFeaturesSection'),
+    document.getElementById('calculateInitialBtn'),
+    document.getElementById('adjustCategoryBtn'),
+    // Add individual inputs/buttons within groups if needed for finer control
+    document.getElementById('tumorLocation'),
+    ...document.querySelectorAll('input[name="tumorInVein"]'),
+    ...document.querySelectorAll('input[name="arterialPhase"]'),
+    document.getElementById('tumorSize'),
+    ...document.querySelectorAll('input[name="features"]'),
+    ...document.querySelectorAll('#ancillaryFeaturesSection input[type="checkbox"]')
+];
+
+
+// --- Eligibility Check ---
+function checkEligibilityAndControlForm() {
+    const age = parseInt(patientAgeInput.value);
+    const isUnderAge = !isNaN(age) && age < 18;
+    const hasDisablingCondition = Array.from(disablingConditionCheckboxes).some(cb => cb.checked);
+
+    ageWarningDiv.style.display = isUnderAge ? 'block' : 'none';
+    conditionWarningDiv.style.display = hasDisablingCondition ? 'block' : 'none';
+
+    isEligible = !isUnderAge && !hasDisablingCondition;
+
+    // Disable/Enable form elements based on eligibility
+    formElementsToDisable.forEach(el => {
+        if (el) { // Check if element exists
+             // For fieldsets or divs containing inputs, we might just visually disable
+             if (el.tagName === 'DIV' || el.tagName === 'FIELDSET') {
+                 el.style.opacity = isEligible ? '1' : '0.5';
+                 el.style.pointerEvents = isEligible ? 'auto' : 'none'; // Prevent interaction
+             }
+             // Directly disable form controls
+             if (['INPUT', 'BUTTON', 'TEXTAREA', 'SELECT'].includes(el.tagName)) {
+                 el.disabled = !isEligible;
+             }
+        }
+    });
+
+     // Ensure calculation buttons are explicitly handled
+     document.getElementById('calculateInitialBtn').disabled = !isEligible;
+     // Adjust button state depends on calculation having run, but disable if ineligible
+     if (!isEligible) {
+         document.getElementById('adjustCategoryBtn').disabled = true;
+         document.getElementById('adjustCategoryBtn').style.display = 'none'; // Hide it too
+         document.getElementById('result').innerHTML = ''; // Clear results if becomes ineligible
+         document.getElementById('ancillaryFeaturesSection').style.display = 'none'; // Hide ancillary
+     } else {
+         // Re-enable calculate button if eligible, adjust button state depends on flow
+         document.getElementById('calculateInitialBtn').disabled = false;
+         // Adjust button visibility is handled by the calculation logic, don't force enable here
+     }
+
+
+    return isEligible;
+}
+
 
 // --- Helper Functions ---
 function calculateInitialCategory(tumorInVein, arterialPhase, tumorSize, features) {
@@ -117,9 +187,23 @@ function getFeatureText(value) {
 
 // --- Event Listeners ---
 
+// Listen for changes in age or disabling conditions
+patientAgeInput.addEventListener('input', checkEligibilityAndControlForm);
+disablingConditionCheckboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', checkEligibilityAndControlForm);
+});
+
+
 // Listener for Initial Calculation
 document.getElementById('calculateInitialBtn').addEventListener('click', function(e) {
     e.preventDefault();
+
+    // First, check eligibility
+    if (!checkEligibilityAndControlForm()) {
+        document.getElementById('result').innerHTML = '<span style="color:red;">Algorithm not applicable based on age or condition.</span>';
+        // Ensure warnings are visible (handled by checkEligibilityAndControlForm)
+        return; // Stop calculation
+    }
 
     // Reset global data and hide export section
     formData = {};
@@ -310,6 +394,9 @@ document.addEventListener('DOMContentLoaded', () => {
      document.getElementById('exportOutputSection').style.display = 'none';
      document.getElementById('calculateInitialBtn').style.display = 'block';
      document.getElementById('result').innerHTML = ''; // Clear result area
+
+     // Check eligibility on load
+     checkEligibilityAndControlForm();
 });
 
 // Listener for Reset Button
@@ -336,6 +423,13 @@ document.getElementById('resetBtn').addEventListener('click', function() {
      // Clear result display
      document.getElementById('result').innerHTML = '';
 
+     // Hide warnings
+     ageWarningDiv.style.display = 'none';
+     conditionWarningDiv.style.display = 'none';
+
      // Ensure Arterial Phase is visible (as TIV is now reset)
      document.getElementById('arterialPhase').style.display = 'block';
+
+     // Re-check eligibility and reset form controls state
+     checkEligibilityAndControlForm();
 });
