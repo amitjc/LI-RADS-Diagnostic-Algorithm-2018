@@ -6,7 +6,8 @@ let isEligible = true; // Track eligibility status
 // --- Elements ---
 const patientAgeInput = document.getElementById('patientAge');
 const ageWarningDiv = document.getElementById('ageWarning');
-const disablingConditionCheckboxes = document.querySelectorAll('.disabling-condition');
+const riskFactorCheckboxes = document.querySelectorAll('input[name="riskFactors"]'); // All risk factors
+const disablingConditionCheckboxes = document.querySelectorAll('.disabling-condition'); // Specific disabling ones
 const conditionWarningDiv = document.getElementById('conditionWarning');
 const formElementsToDisable = [
     document.getElementById('locationGroup'),
@@ -36,39 +37,101 @@ function checkEligibilityAndControlForm() {
     ageWarningDiv.style.display = isUnderAge ? 'block' : 'none';
     conditionWarningDiv.style.display = hasDisablingCondition ? 'block' : 'none';
 
-    isEligible = !isUnderAge && !hasDisablingCondition;
+    const overallEligibility = !isUnderAge && !hasDisablingCondition; // Renamed from isEligible for clarity
 
-    // Disable/Enable form elements based on eligibility
+    const isAgeFilled = patientAgeInput.value.trim() !== '';
+    const anyRiskFactorSelected = Array.from(riskFactorCheckboxes).some(cb => cb.checked);
+
+    const showSubsequentFields = overallEligibility && isAgeFilled && anyRiskFactorSelected; // Changed OR to AND
+
+    // Disable/Enable form elements based on eligibility and prerequisites
     formElementsToDisable.forEach(el => {
-        if (el) { // Check if element exists
-             // For fieldsets or divs containing inputs, we might just visually disable
-             if (el.tagName === 'DIV' || el.tagName === 'FIELDSET') {
-                 el.style.opacity = isEligible ? '1' : '0.5';
-                 el.style.pointerEvents = isEligible ? 'auto' : 'none'; // Prevent interaction
-             }
-             // Directly disable form controls
-             if (['INPUT', 'BUTTON', 'TEXTAREA', 'SELECT'].includes(el.tagName)) {
-                 el.disabled = !isEligible;
-             }
+        if (!el) return;
+
+        const isContainer = el.tagName === 'DIV' || el.tagName === 'FIELDSET';
+        const isControl = ['INPUT', 'BUTTON', 'TEXTAREA', 'SELECT'].includes(el.tagName);
+
+        if (showSubsequentFields) {
+            if (isContainer) {
+                // For primary containers like locationGroup, tumorInVein (div): make them visible.
+                // The arterialPhase group and subsequent groups (tumorSizeGroup, featuresGroup, ancillaryFeaturesSection)
+                // have their display managed by specific event listeners (e.g., tumorInVein change).
+                if (el.id === 'locationGroup' || el.id === 'tumorInVein') {
+                    el.style.display = 'block';
+                }
+                el.style.opacity = '1';
+                el.style.pointerEvents = 'auto';
+            }
+            if (isControl) {
+                el.disabled = false;
+                // calculateInitialBtn should be visible if showSubsequentFields
+                if (el.id === 'calculateInitialBtn') {
+                    el.style.display = 'block';
+                }
+                // adjustCategoryBtn and exportBtn visibility is handled by other logic when showSubsequentFields is true
+            }
+        } else { // !showSubsequentFields
+            if (isContainer) {
+                // Hide all subsequent containers if prerequisites not met or ineligible
+                el.style.display = 'none';
+                el.style.opacity = '0.5';
+                el.style.pointerEvents = 'none';
+            }
+            if (isControl) {
+                el.disabled = true;
+                if (el.tagName === 'BUTTON') { // Hide all subsequent buttons
+                    el.style.display = 'none';
+                }
+            }
         }
     });
 
-     // Ensure calculation buttons are explicitly handled
-     document.getElementById('calculateInitialBtn').disabled = !isEligible;
-     // Adjust button state depends on calculation having run, but disable if ineligible
-     if (!isEligible) {
-         document.getElementById('adjustCategoryBtn').disabled = true;
-         document.getElementById('adjustCategoryBtn').style.display = 'none'; // Hide it too
-         document.getElementById('result').innerHTML = ''; // Clear results if becomes ineligible
-         document.getElementById('ancillaryFeaturesSection').style.display = 'none'; // Hide ancillary
-     } else {
-         // Re-enable calculate button if eligible, adjust button state depends on flow
-         document.getElementById('calculateInitialBtn').disabled = false;
-         // Adjust button visibility is handled by the calculation logic, don't force enable here
-     }
+    // After the loop, explicitly manage visibility of TIV/APHE dependent sections if showSubsequentFields is true
+    if (showSubsequentFields) {
+        const calcBtn = document.getElementById('calculateInitialBtn');
+        if (calcBtn) { // Ensure calculate button is definitely visible and enabled
+            calcBtn.style.display = 'block';
+            calcBtn.disabled = false;
+        }
 
+        const tumorInVeinSelected = document.querySelector('input[name="tumorInVein"]:checked');
+        const arterialPhaseSelected = document.querySelector('input[name="arterialPhase"]:checked');
+        const arterialPhaseDiv = document.getElementById('arterialPhase'); // This is a container in formElementsToDisable
+        const tumorSizeGroupDiv = document.getElementById('tumorSizeGroup');
+        const featuresGroupDiv = document.getElementById('featuresGroup');
 
-    return isEligible;
+        // arterialPhaseDiv visibility is already handled by the loop if it's in formElementsToDisable.
+        // If TIV is 'yes', its specific listener should hide arterialPhaseDiv.
+        // We ensure that logic is respected here.
+        if (tumorInVeinSelected && tumorInVeinSelected.value === 'yes') {
+            if (arterialPhaseDiv) arterialPhaseDiv.style.display = 'none'; // TIV listener also does this
+            if (tumorSizeGroupDiv) tumorSizeGroupDiv.style.display = 'none';
+            if (featuresGroupDiv) featuresGroupDiv.style.display = 'none';
+        } else { // TIV is 'no' or not selected
+            // arterialPhaseDiv should be 'block' from the loop if showSubsequentFields is true.
+            // If TIV is 'no' and APHE is selected, show size/features.
+            if (arterialPhaseSelected) {
+                if (tumorSizeGroupDiv) tumorSizeGroupDiv.style.display = 'block';
+                if (featuresGroupDiv) featuresGroupDiv.style.display = 'block';
+            } else {
+                if (tumorSizeGroupDiv) tumorSizeGroupDiv.style.display = 'none';
+                if (featuresGroupDiv) featuresGroupDiv.style.display = 'none';
+            }
+        }
+        // Ancillary features, adjust button, export button visibility are handled by their respective triggering events.
+    } else { // !showSubsequentFields
+        // Clear results and ensure all dependent sections/buttons are hidden
+        if (document.getElementById('result')) document.getElementById('result').innerHTML = '';
+        if (document.getElementById('tumorSizeGroup')) document.getElementById('tumorSizeGroup').style.display = 'none';
+        if (document.getElementById('featuresGroup')) document.getElementById('featuresGroup').style.display = 'none';
+        if (document.getElementById('ancillaryFeaturesSection')) document.getElementById('ancillaryFeaturesSection').style.display = 'none';
+        if (document.getElementById('adjustCategoryBtn')) document.getElementById('adjustCategoryBtn').style.display = 'none';
+        if (document.getElementById('exportBtn')) document.getElementById('exportBtn').style.display = 'none';
+        if (document.getElementById('exportOutputSection')) document.getElementById('exportOutputSection').style.display = 'none';
+        // calculateInitialBtn is already handled by the loop to be hidden and disabled.
+    }
+    isEligible = overallEligibility; // Update global isEligible based on overall checks for other parts of the script that might use it
+    return overallEligibility; // Return overall eligibility for the calculate button listener
 }
 
 
@@ -187,57 +250,52 @@ function getFeatureText(value) {
 
 // --- Event Listeners ---
 
-// Listen for changes in age or disabling conditions
+// Listen for changes in age or disabling conditions or any risk factor
 patientAgeInput.addEventListener('input', checkEligibilityAndControlForm);
-disablingConditionCheckboxes.forEach(checkbox => {
+riskFactorCheckboxes.forEach(checkbox => { // Listen to ALL risk factor checkboxes
     checkbox.addEventListener('change', checkEligibilityAndControlForm);
 });
+// Note: disablingConditionCheckboxes is a subset of riskFactorCheckboxes if they share name="riskFactors"
+// The loop above covers all, including disabling ones.
 
 
 // Listener for Initial Calculation
+// This button is now only relevant if Tumor-in-vein is 'No'.
 document.getElementById('calculateInitialBtn').addEventListener('click', function(e) {
     e.preventDefault();
 
-    // First, check eligibility
+    // First, check eligibility (overall age/condition)
     if (!checkEligibilityAndControlForm()) {
         document.getElementById('result').innerHTML = '<span style="color:red;">Algorithm not applicable based on age or condition.</span>';
-        // Ensure warnings are visible (handled by checkEligibilityAndControlForm)
         return; // Stop calculation
     }
 
-    // Reset global data and hide export section
-    formData = {};
+    // Reset categories and hide export section before new calculation
     initialCategory = '';
     finalCategory = '';
     document.getElementById('exportOutputSection').style.display = 'none';
     document.getElementById('exportBtn').style.display = 'none';
 
-
-    // Get common inputs
-    formData.location = document.getElementById('tumorLocation').value;
+    // Capture current form data for this calculation path
+    // formData.tumorInVein should be 'no' if this button is active.
+    // formData.location and formData.tumorInVein are set by the tumorInVein radio listener.
+    // If they weren't (e.g. direct load with TIV No pre-selected), ensure they are captured.
+    const locationInput = document.getElementById('tumorLocation');
+    if (locationInput) formData.location = locationInput.value;
+    
     const tumorInVeinInput = document.querySelector('input[name="tumorInVein"]:checked');
-
-    if (!tumorInVeinInput) {
-         document.getElementById('result').innerHTML = '<span style="color:red;">Please select Tumor-in-vein status.</span>';
-         return;
-    }
-    formData.tumorInVein = tumorInVeinInput.value;
-
-    // If TIV is yes, calculate and stop
-    if (formData.tumorInVein === 'yes') {
-        initialCategory = calculateInitialCategory(formData.tumorInVein, null, null, []);
-        finalCategory = initialCategory; // Final is same as initial for TIV
-        formData.initialCategory = initialCategory;
-        formData.finalCategory = finalCategory;
-        document.getElementById('result').innerHTML = `Final Category: <span style="color:#e74c3c; font-size:24px;">${finalCategory}</span>`;
-        document.getElementById('ancillaryFeaturesSection').style.display = 'none';
-        document.getElementById('calculateInitialBtn').style.display = 'block';
-        document.getElementById('adjustCategoryBtn').style.display = 'none';
-        document.getElementById('exportBtn').style.display = 'block'; // Show export for TIV case too
+    // This button should only be clickable if TIV is 'no'.
+    // The radio listener for TIV already sets formData.tumorInVein.
+    if (!tumorInVeinInput || tumorInVeinInput.value === 'yes') {
+        // This case should ideally not happen if UI logic is correct
+        // but as a fallback:
+        console.error("Calculate button clicked with TIV not 'No'. UI logic error?");
         return;
     }
+    formData.tumorInVein = 'no';
 
-    // Continue if TIV is no
+
+    // Continue if TIV is no (which is the assumption for this button)
     const arterialPhaseInput = document.querySelector('input[name="arterialPhase"]:checked');
     const tumorSizeInput = document.getElementById('tumorSize');
     const featuresInputs = document.querySelectorAll('input[name="features"]:checked');
@@ -328,25 +386,54 @@ document.querySelectorAll('input[name="tumorInVein"]').forEach(radio => {
           const exportBtn = document.getElementById('exportBtn');
           const exportOutputSection = document.getElementById('exportOutputSection');
           const resultBox = document.getElementById('result');
+          const locationInput = document.getElementById('tumorLocation');
 
-          // Reset state on change
+          // Reset common UI elements and formData parts
           resultBox.innerHTML = '';
           ancillaryFeaturesSection.style.display = 'none';
           adjustCategoryBtn.style.display = 'none';
           exportBtn.style.display = 'none';
           exportOutputSection.style.display = 'none';
-          calculateInitialBtn.style.display = 'block';
+
+          initialCategory = ''; // Reset global category
+          finalCategory = '';   // Reset global category
+
+          // Reset relevant parts of formData
+          formData = {
+              location: locationInput ? locationInput.value : (formData.location || ''), // Preserve location if already set
+              tumorInVein: this.value,
+              // Clear downstream data
+              arterialPhase: undefined,
+              tumorSize: undefined,
+              features: [],
+              afMalignancyGeneral: [],
+              afHccSpecific: [],
+              afBenignity: [],
+              initialCategory: '',
+              finalCategory: ''
+          };
 
 
           if (this.value === 'yes') {
                arterialPhaseGroup.style.display = 'none';
                tumorSizeGroup.style.display = 'none';
                featuresGroup.style.display = 'none';
-          } else {
+               calculateInitialBtn.style.display = 'none'; // Hide, calculation is automatic
+
+               // Perform TIV calculation immediately
+               initialCategory = 'LR-TIV';
+               finalCategory = initialCategory;
+               formData.initialCategory = initialCategory;
+               formData.finalCategory = finalCategory;
+
+               resultBox.innerHTML = `Final Category: <span style="color:#e74c3c; font-size:24px;">${finalCategory}</span>`;
+               exportBtn.style.display = 'block';
+          } else { // this.value === 'no'
                arterialPhaseGroup.style.display = 'block';
-               // Keep size/features hidden until APHE is selected
-               tumorSizeGroup.style.display = 'none';
-               featuresGroup.style.display = 'none';
+               tumorSizeGroup.style.display = 'none'; // Hide until APHE selected
+               featuresGroup.style.display = 'none';  // Hide until APHE selected
+               calculateInitialBtn.style.display = 'block'; // Show for manual calculation path
+               // exportBtn is already hidden from the top of this function
           }
      });
      // Trigger change on load if pre-selected
@@ -380,23 +467,38 @@ document.querySelectorAll('input[name="arterialPhase"]').forEach(radio => {
 
 // Initial state setup on load
 document.addEventListener('DOMContentLoaded', () => {
-     // Reset form state visually
-     const tumorInVeinSelected = document.querySelector('input[name="tumorInVein"]:checked');
-     const arterialPhaseSelected = document.querySelector('input[name="arterialPhase"]:checked');
-
-     document.getElementById('arterialPhase').style.display = (tumorInVeinSelected && tumorInVeinSelected.value === 'yes') ? 'none' : 'block';
-     document.getElementById('tumorSizeGroup').style.display = (arterialPhaseSelected && tumorInVeinSelected && tumorInVeinSelected.value === 'no') ? 'block' : 'none';
-     document.getElementById('featuresGroup').style.display = (arterialPhaseSelected && tumorInVeinSelected && tumorInVeinSelected.value === 'no') ? 'block' : 'none';
-
+     // Ensure all conditionally visible sections start hidden.
+     // Their visibility will be correctly set by checkEligibilityAndControlForm and subsequent event listeners.
+     document.getElementById('locationGroup').style.display = 'none';
+     document.getElementById('tumorInVein').style.display = 'none';
+     document.getElementById('arterialPhase').style.display = 'none';
+     document.getElementById('tumorSizeGroup').style.display = 'none';
+     document.getElementById('featuresGroup').style.display = 'none';
      document.getElementById('ancillaryFeaturesSection').style.display = 'none';
+
+     // Ensure buttons that depend on state start hidden.
+     // calculateInitialBtn's visibility is now primarily handled by checkEligibilityAndControlForm and TIV listener.
+     // Start it hidden, checkEligibilityAndControlForm might show it if age/risk are met AND TIV is not 'yes'.
+     document.getElementById('calculateInitialBtn').style.display = 'none';
      document.getElementById('adjustCategoryBtn').style.display = 'none';
      document.getElementById('exportBtn').style.display = 'none';
      document.getElementById('exportOutputSection').style.display = 'none';
-     document.getElementById('calculateInitialBtn').style.display = 'block';
      document.getElementById('result').innerHTML = ''; // Clear result area
 
-     // Check eligibility on load
+     // Check eligibility on load. This function will:
+     // 1. Determine if age/risk factors allow showing locationGroup and tumorInVein.
+     // 2. If so, it makes them visible.
+     // 3. It correctly leaves arterialPhase, tumorSizeGroup, etc., hidden at this stage,
+     //    as their visibility depends on further user interaction (selecting TIV 'No', etc.).
+     // 4. It also manages the initial visibility of calculateInitialBtn.
      checkEligibilityAndControlForm();
+
+     // Note: The event listeners for radio buttons (like tumorInVein, arterialPhase)
+     // are set up with logic to dispatch 'change' events if they are pre-checked.
+     // These dispatches occur when the listeners are attached.
+     // So, if tumorInVein 'No' is pre-checked, its change handler will run
+     // and correctly show the arterialPhase group after checkEligibilityAndControlForm
+     // has potentially made the tumorInVein group itself visible.
 });
 
 // Listener for Reset Button
@@ -415,8 +517,9 @@ document.getElementById('resetBtn').addEventListener('click', function() {
      document.getElementById('ancillaryFeaturesSection').style.display = 'none';
      document.getElementById('exportOutputSection').style.display = 'none';
 
-     // Reset button visibility
-     document.getElementById('calculateInitialBtn').style.display = 'block';
+     // Reset button visibility - calculateInitialBtn should be hidden initially after reset.
+     // checkEligibilityAndControlForm will manage its visibility.
+     document.getElementById('calculateInitialBtn').style.display = 'none';
      document.getElementById('adjustCategoryBtn').style.display = 'none';
      document.getElementById('exportBtn').style.display = 'none';
 
@@ -427,9 +530,11 @@ document.getElementById('resetBtn').addEventListener('click', function() {
      ageWarningDiv.style.display = 'none';
      conditionWarningDiv.style.display = 'none';
 
-     // Ensure Arterial Phase is visible (as TIV is now reset)
-     document.getElementById('arterialPhase').style.display = 'block';
+     // Ensure Arterial Phase is hidden (as TIV is now reset and not selected)
+     document.getElementById('arterialPhase').style.display = 'none';
 
      // Re-check eligibility and reset form controls state
+     // This will show location and TIV if age/risk are met.
+     // It will correctly leave APHE hidden.
      checkEligibilityAndControlForm();
 });
